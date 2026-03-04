@@ -1,0 +1,40 @@
+[gd_scene format=3 uid="uid://dev662nashht0"]
+
+[ext_resource type="Script" uid="uid://d2271sl0idt2y" path="res://addons/pass_through_manager/Examples/test_pass_through_editor.cs" id="2_ymyi8"]
+[ext_resource type="Texture2D" uid="uid://c7ybnttmnxib4" path="res://icon.svg" id="3_jkx3c"]
+[ext_resource type="Script" uid="uid://b6altpn2r1clr" path="res://addons/pass_through_manager/Examples/move_icon.gd" id="4_80wlf"]
+
+[node name="Main" type="Node2D" unique_id=846472212]
+
+[node name="moveIcon" type="Sprite2D" parent="." unique_id=219685888]
+position = Vector2(156, 422)
+texture = ExtResource("3_jkx3c")
+script = ExtResource("4_80wlf")
+
+[node name="Area2D" type="Area2D" parent="moveIcon" unique_id=1705613771]
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="moveIcon/Area2D" unique_id=5142433]
+polygon = PackedVector2Array(-61, -59, -60, 60, 64, 62, 63, -62)
+
+[node name="moveIcon2" type="Sprite2D" parent="." unique_id=1543723705]
+position = Vector2(157, 482)
+texture = ExtResource("3_jkx3c")
+script = ExtResource("4_80wlf")
+
+[node name="Area2D" type="Area2D" parent="moveIcon2" unique_id=1477082876]
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="moveIcon2/Area2D" unique_id=1479058414]
+polygon = PackedVector2Array(-61, -59, -60, 60, 64, 62, 63, -62)
+
+[node name="moveIcon3" type="Sprite2D" parent="." unique_id=1857380816]
+position = Vector2(886, 106)
+texture = ExtResource("3_jkx3c")
+script = ExtResource("4_80wlf")
+
+[node name="Area2D" type="Area2D" parent="moveIcon3" unique_id=611985673]
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="moveIcon3/Area2D" unique_id=630451606]
+polygon = PackedVector2Array(-61, -59, -60, 60, 64, 62, 63, -62)
+
+[node name="DrawGizmo" type="Node2D" parent="." unique_id=1556574122]
+script = ExtResource("2_ymyi8")
