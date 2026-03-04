@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://dev662nashht0"]
 
 [ext_resource type="Script" uid="uid://d2271sl0idt2y" path="res://addons/pass_through_manager/Examples/test_pass_through_editor.cs" id="2_ymyi8"]
-[ext_resource type="Texture2D" uid="uid://c7ybnttmnxib4" path="res://icon.svg" id="3_jkx3c"]
+[ext_resource type="Texture2D" uid="uid://c7ybnttmnxib4" path="res://addons/pass_through_manager/Examples/icon.svg" id="3_jkx3c"]
 [ext_resource type="Script" uid="uid://b6altpn2r1clr" path="res://addons/pass_through_manager/Examples/move_icon.gd" id="4_80wlf"]
 
 [node name="Main" type="Node2D" unique_id=846472212]
