@@ -19,7 +19,7 @@ script = ExtResource("4_80wlf")
 polygon = PackedVector2Array(-61, -59, -60, 60, 64, 62, 63, -62)
 
 [node name="moveIcon2" type="Sprite2D" parent="." unique_id=1543723705]
-position = Vector2(157, 482)
+position = Vector2(427, 418)
 texture = ExtResource("2_jkx3c")
 script = ExtResource("4_80wlf")
 
