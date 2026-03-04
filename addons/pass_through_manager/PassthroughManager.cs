@@ -74,15 +74,29 @@ public partial class PassthroughManager : Node
 	public override void _Ready()
 	{
 		Instance = this;
+	}
+
+	/// <summary>
+	/// 重置或重建PassthroughManager
+	/// </summary>
+	/// <param name="window"></param>
+	/// <param name="maxDepth"></param>
+	/// <param name="maxItemCount"></param>
+	public void Initialize(Window window, int maxDepth = 7, int maxItemCount = 1)
+	{
 #if GODOT_WINDOWS
 		_provider = new WindowsPassthroughProvider();
 #else
 		_provider = new DefaultPassthroughProvider();
 #endif
-		var win = GetWindow();
-		_provider.Initialize(win);
+		_provider.Initialize(window);
 		_provider.SetClickthrough(true);
-		QuadTree = new QuadTree(win.GetVisibleRect(), 7, 1);
+		QuadTree = new QuadTree(window.GetVisibleRect(), maxDepth, maxItemCount);
+		foreach (var item in _clickAreas.Values)
+		{
+			QuadTree.Insert(item);
+		}
+		_isUpdated = true;
 	}
 
 	public void RegisterPolygon2DClickArea(Polygon2D poly)
@@ -149,6 +163,7 @@ public partial class PassthroughManager : Node
 	{
 		if (_clickAreas.ContainsKey(instanceId)) return;
 		_clickAreas[instanceId] = new PolygonItem(instanceId, polygon);
+		if (QuadTree == null) return;
 		QuadTree.Insert(_clickAreas[instanceId]);
 		_isUpdated = true;
 	}
@@ -162,7 +177,7 @@ public partial class PassthroughManager : Node
 	{
 		if (_clickAreas.ContainsKey(instanceId) == false) return;
 		_clickAreas[instanceId].SetPolygon(polygon);
-
+		if (QuadTree == null) return;
 		if (QuadTree.Update(_clickAreas[instanceId]))
 		{
 			_isUpdated = true;
@@ -177,8 +192,10 @@ public partial class PassthroughManager : Node
 	{
 		if (_clickAreas.ContainsKey(instanceId))
 		{
-			QuadTree.Remove(_clickAreas[instanceId]);
+			var area = _clickAreas[instanceId];
 			_clickAreas.Remove(instanceId);
+			if (QuadTree == null) return;
+			QuadTree.Remove(area);
 			_isUpdated = true;
 		}
 	}

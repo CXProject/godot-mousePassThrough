@@ -10,11 +10,11 @@ config_version=5
 
 [application]
 
-config/name="TransparentGame"
+config/name="mousePassTrough_addon"
 run/main_scene="uid://dev662nashht0"
 config/features=PackedStringArray("4.6", "C#", "Forward Plus")
 boot_splash/bg_color=Color(0.14117648, 0.14117648, 0.14117648, 0)
-config/icon="res://icon.svg"
+config/icon="res://addons/pass_through_manager/Examples/icon.svg"
 
 [autoload]
 
