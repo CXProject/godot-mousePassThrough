@@ -26,6 +26,8 @@ public interface IQuadTreeItem
 	/// 物体的标识,标识一致则来自同一元，算一个物体
 	/// </summary>
 	public ulong ItemID { get; }
+
+	public void Update();
 }
 
 /// <summary>
@@ -68,7 +70,7 @@ public class QuadTree
 	//每个节点的最大物体数，超过这个数且没达到最大深度就分割下去
 	public int _maxItemCount;
 
-	public QuadTree(Rect2 rect, int maxDepth = 7, int maxItemCount = 2)
+	public QuadTree(Rect2 rect, int maxDepth, int maxItemCount)
 	{
 		Root = new QuadTreeNode(rect);
 		_maxDepth = maxDepth;
@@ -104,15 +106,24 @@ public class QuadTree
 		{
 			item.CurrentNode = null;
 		}
+
 		// 判定是否需要合并
+		// 先对当前节点进行判断
+		TryMarge(node);
+		// 再对父节点进行判断
 		if (node.parent == null) return;
-		ids.Clear();
-		GetItemIdsInternal(node.parent, ids);
-		if (ids.Count <= _maxItemCount)
+		TryMarge(node.parent);
+
+		void TryMarge(QuadTreeNode n)
 		{
-			//合并子节点
-			MargeNode(node.parent, node.parent);
-			node.parent.children.Clear();
+			ids.Clear();
+			GetItemIdsInternal(n, ids);
+			if (ids.Count <= _maxItemCount)
+			{
+				//合并子节点
+				MargeNode(n, n);
+				n.children.Clear();
+			}
 		}
 	}
 

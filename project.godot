@@ -22,8 +22,11 @@ PassthroughManager="*uid://cuu7bj6kjmbra"
 
 [display]
 
+window/size/borderless=true
 window/size/always_on_top=true
 window/size/transparent=true
+window/size/minimize_disabled=true
+window/size/maximize_disabled=true
 window/per_pixel_transparency/allowed=true
 
 [dotnet]

@@ -1,5 +1,4 @@
 using Godot;
-using System;
 using System.Collections.Generic;
 
 /// <summary>
@@ -11,60 +10,12 @@ public interface IPassthroughProvider
 	public void SetClickthrough(bool clickthrough);
 }
 
-public class PolygonItem : IQuadTreeItem
-{
-	public QuadTreeNode CurrentNode { get; set; }
-
-	public Rect2 Bounds { get; private set; }
-
-	public ulong ItemID { get; private set; }
-
-	private Vector2[] _polygon;
-	public bool IsHit(Vector2 pos)
-	{
-		return Geometry2D.IsPointInPolygon(pos, _polygon);
-	}
-
-	public PolygonItem(ulong itemId, Vector2[] polygon)
-	{
-		ItemID = itemId;
-		SetPolygon(polygon);
-	}
-
-	public void SetPolygon(Vector2[] polygon)
-	{
-		_polygon = polygon;
-		Bounds = GetPolygonAABB(polygon);
-	}
-
-	private Rect2 GetPolygonAABB(Vector2[] poly)
-	{
-		if (poly.Length == 0)
-			return new Rect2();
-
-		var minPos = poly[0];
-		var maxPos = poly[0];
-
-		foreach (var p in poly)
-		{
-			var point = p;
-			minPos.X = Math.Min(minPos.X, point.X);
-			minPos.Y = Math.Min(minPos.Y, point.Y);
-			maxPos.X = Math.Max(maxPos.X, point.X);
-			maxPos.Y = Math.Max(maxPos.Y, point.Y);
-		}
-
-		return new Rect2(minPos, maxPos - minPos);
-	}
-
-}
-
 /// <summary>
 ///  鼠标穿透管理
 /// </summary>
 public partial class PassthroughManager : Node
 {
-	private Dictionary<ulong, PolygonItem> _clickAreas = new Dictionary<ulong, PolygonItem>();
+	private Dictionary<ulong, IQuadTreeItem> _clickAreas = new Dictionary<ulong, IQuadTreeItem>();
 	private IPassthroughProvider _provider;
 	public QuadTree QuadTree { get; private set; }
 	public static PassthroughManager Instance { get; private set; }
@@ -82,7 +33,7 @@ public partial class PassthroughManager : Node
 	/// <param name="window"></param>
 	/// <param name="maxDepth"></param>
 	/// <param name="maxItemCount"></param>
-	public void Initialize(Window window, int maxDepth = 7, int maxItemCount = 1)
+	public void Initialize(Window window, int maxDepth = 7, int maxItemCount = 1, bool keepExistingAreas = true)
 	{
 #if GODOT_WINDOWS
 		_provider = new WindowsPassthroughProvider();
@@ -92,91 +43,68 @@ public partial class PassthroughManager : Node
 		_provider.Initialize(window);
 		_provider.SetClickthrough(true);
 		QuadTree = new QuadTree(window.GetVisibleRect(), maxDepth, maxItemCount);
-		foreach (var item in _clickAreas.Values)
+		if (keepExistingAreas)
 		{
-			QuadTree.Insert(item);
+			foreach (var item in _clickAreas.Values)
+			{
+				QuadTree.Insert(item);
+			}
 		}
+		else
+		{
+			_clickAreas.Clear();
+		}
+
+		_forceClickableNodes.Clear();
 		_isUpdated = true;
 	}
 
 	public void RegisterPolygon2DClickArea(Polygon2D poly)
 	{
 		var instanceId = poly.GetInstanceId();
-		var polygon = poly.GetPolygon();
-		for (var i = 0; i < polygon.Length; i++)
-		{
-			polygon[i] = poly.ToGlobal(polygon[i]);
-		}
-		RegisterClickArea(instanceId, polygon);
-	}
-
-	public void RegisterCollisionPolygon2DClickArea(CollisionPolygon2D poly)
-	{
-		var instanceId = poly.GetInstanceId();
-		var polygon = poly.GetPolygon();
-		for (var i = 0; i < polygon.Length; i++)
-		{
-			polygon[i] = poly.ToGlobal(polygon[i]);
-		}
-		RegisterClickArea(instanceId, polygon);
-	}
-
-	public void UpdatePolygon2DClickArea(Polygon2D poly)
-	{
-		var instanceId = poly.GetInstanceId();
-		var polygon = poly.GetPolygon();
-		for (var i = 0; i < polygon.Length; i++)
-		{
-			polygon[i] = poly.ToGlobal(polygon[i]);
-		}
-		UpdateClickArea(instanceId, polygon);
-	}
-
-	public void UpdateCollisionPolygon2DClickArea(CollisionPolygon2D poly)
-	{
-		var instanceId = poly.GetInstanceId();
-		var polygon = poly.GetPolygon();
-		for (var i = 0; i < polygon.Length; i++)
-		{
-			polygon[i] = poly.ToGlobal(polygon[i]);
-		}
-		UpdateClickArea(instanceId, polygon);
-	}
-
-	public void UnregisterPolygon2DClickArea(Polygon2D poly)
-	{
-		UnregisterClickArea(poly.GetInstanceId());
-	}
-
-	public void UnregisterCollisionPolygon2DClickArea(CollisionPolygon2D poly)
-	{
-		UnregisterClickArea(poly.GetInstanceId());
-	}
-
-	/// <summary>
-	/// 注册一个鼠标可点击区域
-	/// polygon 一定要是世界坐标下的
-	/// </summary>
-	/// <param name="instanceId"></param>
-	/// <param name="polygon"></param>
-	public void RegisterClickArea(ulong instanceId, Vector2[] polygon)
-	{
 		if (_clickAreas.ContainsKey(instanceId)) return;
-		_clickAreas[instanceId] = new PolygonItem(instanceId, polygon);
+		_clickAreas[instanceId] = new Polygon2DItem(poly);
 		if (QuadTree == null) return;
 		QuadTree.Insert(_clickAreas[instanceId]);
 		_isUpdated = true;
 	}
 
+	public void RegisterCollisionPolygon2DClickArea(CollisionPolygon2D poly)
+	{
+		var instanceId = poly.GetInstanceId();
+		if (_clickAreas.ContainsKey(instanceId))
+		{
+			//刷新区域
+			UpdateClickArea(poly);
+			return;
+		}
+		_clickAreas[instanceId] = new CollisionPloygon2DItem(poly);
+		if (QuadTree == null) return;
+		QuadTree.Insert(_clickAreas[instanceId]);
+		_isUpdated = true;
+	}
+
+	public void UpdateAllClickArea()
+	{
+		foreach (var item in _clickAreas.Values)
+		{
+			item.Update();
+			if (QuadTree == null) continue;
+			if (QuadTree.Update(item))
+			{
+				_isUpdated = true;
+			}
+		}
+	}
+
 	/// <summary>
 	/// 更新一个鼠标可点击区域
 	/// </summary>
-	/// <param name="instanceId"></param>
-	/// <param name="polygon"></param>
-	public void UpdateClickArea(ulong instanceId, Vector2[] polygon)
+	public void UpdateClickArea(Node2D root)
 	{
+		var instanceId = root.GetInstanceId();
 		if (_clickAreas.ContainsKey(instanceId) == false) return;
-		_clickAreas[instanceId].SetPolygon(polygon);
+		_clickAreas[instanceId].Update();
 		if (QuadTree == null) return;
 		if (QuadTree.Update(_clickAreas[instanceId]))
 		{
@@ -184,12 +112,22 @@ public partial class PassthroughManager : Node
 		}
 	}
 
+	public void RegisterCollisionShape2DClickArea(CollisionShape2D shape)
+	{
+		var instanceId = shape.GetInstanceId();
+		if (_clickAreas.ContainsKey(instanceId)) return;
+		_clickAreas[instanceId] = new CollisionShape2DItem(shape);
+		if (QuadTree == null) return;
+		QuadTree.Insert(_clickAreas[instanceId]);
+		_isUpdated = true;
+	}
+
 	/// <summary>
 	/// 注销一个鼠标可点击区域
 	/// </summary>
-	/// <param name="instanceId"></param>
-	public void UnregisterClickArea(ulong instanceId)
+	public void UnregisterClickArea(Node2D root)
 	{
+		var instanceId = root.GetInstanceId();
 		if (_clickAreas.ContainsKey(instanceId))
 		{
 			var area = _clickAreas[instanceId];
@@ -202,6 +140,7 @@ public partial class PassthroughManager : Node
 
 	public override void _Process(double delta)
 	{
+		if (QuadTree == null) return;
 		OnQuadTreeUpdate();
 		if (ForceClickable) return;
 		var mousePos = GetViewport().GetMousePosition();
@@ -209,16 +148,28 @@ public partial class PassthroughManager : Node
 		_provider.SetClickthrough(item == null);
 	}
 
-	private bool _forceClickable = false;
+	private HashSet<ulong> _forceClickableNodes = new HashSet<ulong>();
+
+	private void SetForceClickable(bool clickable, Node node)
+	{
+		var ins = node.GetInstanceId();
+		if (clickable && _forceClickableNodes.Contains(ins)) return;
+		if (!clickable && _forceClickableNodes.Contains(ins) == false) return;
+
+		if (clickable)
+		{
+			_forceClickableNodes.Add(ins);
+		}
+		else
+		{
+			_forceClickableNodes.Remove(ins);
+		}
+		_provider.SetClickthrough(!ForceClickable);
+	}
+
 	public bool ForceClickable
 	{
-		get => _forceClickable;
-		set
-		{
-			if (_forceClickable == value) return;
-			_forceClickable = value;
-			_provider.SetClickthrough(!_forceClickable);
-		}
+		get => _forceClickableNodes.Count > 0;
 	}
 
 	private bool _isUpdated = false;
