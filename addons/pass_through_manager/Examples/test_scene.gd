@@ -3,7 +3,7 @@ extends Node2D
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
-	PassthroughManager.Initialize(get_window(), 7, 1)
+	PassthroughManager.Initialize(get_window(), 7, 1, true)
 	pass # Replace with function body.
 
 
