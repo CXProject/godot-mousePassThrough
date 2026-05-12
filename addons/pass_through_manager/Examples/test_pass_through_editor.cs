@@ -29,6 +29,7 @@ public partial class test_pass_through_editor : Node2D
 	private void DrawInternal(QuadTreeNode node)
 	{
 		var rect = new Rect2(node.Rect.Position / GlobalScale - GlobalPosition, node.Rect.Size / GlobalScale);
+		DrawString(ThemeDB.FallbackFont, rect.Position + rect.Size / 2, $"Pos:{node.Rect.Position} Size:{node.Rect.Size}", fontSize: 16);
 		DrawRect(rect, Colors.Green, false, 5);
 		foreach (var item in node.quadTreeItems)
 		{
