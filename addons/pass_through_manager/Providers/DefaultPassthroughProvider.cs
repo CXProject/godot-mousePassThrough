@@ -7,15 +7,15 @@ using System;
 public class DefaultPassthroughProvider : IPassthroughProvider
 {
 	private Vector2[] _emptyClickArea = { new Vector2(0, 0), new Vector2(0, 0), new Vector2(0, 0) };
-	private Window _window;
+	public Window Window { get; private set; }
 	public void Initialize(Window window)
 	{
-		_window = window;
+		Window = window;
 	}
 
 	public void SetClickthrough(bool clickthrough)
 	{
-		_window.MousePassthroughPolygon = clickthrough ? _emptyClickArea : null;
+		Window.MousePassthroughPolygon = clickthrough ? _emptyClickArea : null;
 	}
 
 }

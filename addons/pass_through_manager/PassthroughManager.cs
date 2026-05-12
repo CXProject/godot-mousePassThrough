@@ -6,6 +6,7 @@ using System.Collections.Generic;
 /// </summary>
 public interface IPassthroughProvider
 {
+	public Window Window { get; }
 	public void Initialize(Window window);
 	public void SetClickthrough(bool clickthrough);
 }
@@ -19,6 +20,13 @@ public partial class PassthroughManager : Node
 	private IPassthroughProvider _provider;
 	public QuadTree QuadTree { get; private set; }
 	public static PassthroughManager Instance { get; private set; }
+	public Camera2D Camera { get; set; }
+
+	private int _maxDepth;
+	private int _maxItemCount;
+
+	private Vector2 _cam_pos;
+	private Vector2 _cam_zoom;
 
 	[Signal] public delegate void QuadTreeUpdateEventHandler();
 
@@ -33,7 +41,7 @@ public partial class PassthroughManager : Node
 	/// <param name="window"></param>
 	/// <param name="maxDepth"></param>
 	/// <param name="maxItemCount"></param>
-	public void Initialize(Window window, int maxDepth = 7, int maxItemCount = 1, bool keepExistingAreas = true)
+	public void Initialize(Window window, Camera2D camera = null, int maxDepth = 7, int maxItemCount = 1, bool keepExistingAreas = true)
 	{
 #if GODOT_WINDOWS
 		_provider = new WindowsPassthroughProvider();
@@ -42,7 +50,34 @@ public partial class PassthroughManager : Node
 #endif
 		_provider.Initialize(window);
 		_provider.SetClickthrough(true);
-		QuadTree = new QuadTree(window.GetVisibleRect(), maxDepth, maxItemCount);
+
+		_maxDepth = maxDepth;
+		_maxItemCount = maxItemCount;
+		Camera = camera;
+		RebuildData(keepExistingAreas);
+		_forceClickableNodes.Clear();
+	}
+
+	private void RebuildData(bool keepExistingAreas)
+	{
+		var rect = _provider.Window.GetVisibleRect();
+		if (Camera != null)
+		{
+			_cam_pos = Camera.GlobalPosition;
+			_cam_zoom = Camera.Zoom;
+			var size = rect.Size / Camera.Zoom;
+			switch (Camera.AnchorMode)
+			{
+				case Camera2D.AnchorModeEnum.FixedTopLeft:
+					rect = new Rect2(Camera.GlobalPosition, size);
+					break;
+				case Camera2D.AnchorModeEnum.DragCenter:
+					rect = new Rect2(Camera.GlobalPosition - size / 2, size);
+					break;
+			}
+		}
+
+		QuadTree = new QuadTree(rect, _maxDepth, _maxItemCount);
 		if (keepExistingAreas)
 		{
 			foreach (var item in _clickAreas.Values)
@@ -55,8 +90,13 @@ public partial class PassthroughManager : Node
 			_clickAreas.Clear();
 		}
 
-		_forceClickableNodes.Clear();
 		_isUpdated = true;
+	}
+
+	public void SetMainCamera(Camera2D camera, bool keepExistingAreas = true)
+	{
+		Camera = camera;
+		RebuildData(keepExistingAreas);
 	}
 
 	public void RegisterPolygon2DClickArea(Polygon2D poly)
@@ -143,8 +183,37 @@ public partial class PassthroughManager : Node
 		if (QuadTree == null) return;
 		OnQuadTreeUpdate();
 		if (ForceClickable) return;
+
+		// 获取鼠标在屏幕空间的坐标
 		var mousePos = GetViewport().GetMousePosition();
+
+		if (Camera != null)
+		{
+			if (Camera.AnchorMode == Camera2D.AnchorModeEnum.DragCenter)
+			{
+				//如果是中心点为相机锚点，则鼠标坐标和相机坐标有个半个视口大小的便宜
+				var viewSize = GetViewport().GetVisibleRect().Size;
+				mousePos = Camera.GlobalPosition + (mousePos - viewSize / 2) / Camera.Zoom;
+			}
+			else
+			{
+				// 如果锚点在左上角就和鼠标坐标原点相同，所以直接使用鼠标位置，并根据相机缩放反向缩放下鼠标坐标
+				mousePos = Camera.GlobalPosition + mousePos / Camera.Zoom;
+			}
+
+			if (QuadTree.Root.Rect.HasPoint(mousePos) == false)
+			{
+				if (_cam_pos != Camera.GlobalPosition || _cam_zoom != Camera.Zoom)
+				{
+					RebuildData(true);
+				}
+			}
+
+		}
+
+		// 根据鼠标位置查询 QuadTree，判断是否有可点击区域
 		var item = QuadTree.GetHitItem(mousePos);
+		// 如果没有命中任何区域，设置窗口穿透鼠标事件
 		_provider.SetClickthrough(item == null);
 	}
 

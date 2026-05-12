@@ -12,10 +12,10 @@ public class WindowsPassthroughProvider : IPassthroughProvider
                                                                         // check https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles 
                                                                         // 缓存句柄
 
-        private Window _window;
+        public Window Window { get; private set; }
         public void Initialize(Window window)
         {
-                _window = window;
+                Window = window;
                 Win32APIBridge.RegisterWindowHandle(window);
                 // We can set the properties already from here
                 SetClickthrough(false);
@@ -23,7 +23,7 @@ public class WindowsPassthroughProvider : IPassthroughProvider
 
         public void Dispose()
         {
-                Win32APIBridge.UnregisterWindowHandle(_window);
+                Win32APIBridge.UnregisterWindowHandle(Window);
         }
 
         // 同godot提供的polygon api不同，这里只提供要么都穿透，要么都不穿透。
@@ -32,15 +32,15 @@ public class WindowsPassthroughProvider : IPassthroughProvider
 
                 if (clickthrough)
                 {
-                        Win32APIBridge.RegisterForceStyle(_window, WsExTransparent);
-                        Win32APIBridge.UnRegisterFilterStyle(_window, WsExTransparent);
+                        Win32APIBridge.RegisterForceStyle(Window, WsExTransparent);
+                        Win32APIBridge.UnRegisterFilterStyle(Window, WsExTransparent);
                 }
                 else
                 {
-                        Win32APIBridge.UnRegisterForceStyle(_window, WsExTransparent);
-                        Win32APIBridge.RegisterFilterStyle(_window, WsExTransparent);
+                        Win32APIBridge.UnRegisterForceStyle(Window, WsExTransparent);
+                        Win32APIBridge.RegisterFilterStyle(Window, WsExTransparent);
                 }
-                Win32APIBridge.RefreshStyle(_window);
+                Win32APIBridge.RefreshStyle(Window);
         }
 }
 #endif
