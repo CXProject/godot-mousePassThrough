@@ -51,9 +51,10 @@
 
 ### 方法 (Methods)
 
-#### `Initialize(Window window, int maxDepth = 7, int maxItemCount = 1, bool keepExistingAreas = true)`
+#### `Initialize(Window window, Camera2D camera = null, int maxDepth = 7, int maxItemCount = 1, bool keepExistingAreas = true)`
 - **参数**:
   - `window` (Window): 目标窗口对象
+  - `camera` (Camera2D, 可选): 主相机对象，默认 null
   - `maxDepth` (int, 可选): 四叉树最大深度，默认 7
   - `maxItemCount` (int, 可选): 单个节点最大项目数，默认 1
   - `keepExistingAreas` (bool, 可选): 是否保留现有区域，默认 true
@@ -66,6 +67,18 @@
 - **示例**:
   ```csharp
   PassthroughManager.Instance.Initialize(GetViewport().GetWindow());
+  ```
+
+#### `SetMainCamera(Camera2D camera)`
+- **参数**:
+  - `camera` (Camera2D): 主相机对象
+- **返回值**: void
+- **说明**: 设置主相机并重建四叉树数据
+- **用途**: 在运行时动态更换主相机，确保 QuadTree 区域与新相机视口一致
+- **示例**:
+  ```csharp
+  var newCamera = GetNode<Camera2D>("NewCamera");
+  PassthroughManager.Instance.SetMainCamera(newCamera);
   ```
 
 #### `RegisterPolygon2DClickArea(Polygon2D poly)`
