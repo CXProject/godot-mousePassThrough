@@ -23,6 +23,9 @@
 - 注册 `FollowViewportScale != 1.0` 的物品时输出警告日志，提示点击检测可能不准确
 - `IQuadTreeItem` 接口新增 `RootNode` 属性，支持从物品侧向上查找父级 CanvasLayer
 
+**API 变化**
+- **`SetMainCamera` 签名简化**: 移除 `keepExistingAreas` 参数，仅保留 `Camera2D camera` 参数
+
 ---
 
 ## 已知限制
