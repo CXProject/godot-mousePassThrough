@@ -20,6 +20,7 @@ public partial class PassthroughManager : Node
 	private List<IQuadTreeItem> _screenSpaceItems = new List<IQuadTreeItem>();
 	private IPassthroughProvider _provider;
 	public QuadTree QuadTree { get; private set; }
+	public IReadOnlyList<IQuadTreeItem> ScreenSpaceItems => _screenSpaceItems;
 	public static PassthroughManager Instance { get; private set; }
 	public Camera2D Camera { get; set; }
 

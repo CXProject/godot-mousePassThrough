@@ -22,8 +22,41 @@ public partial class test_pass_through_editor : Node2D
 	public override void _Draw()
 	{
 		GlobalPosition = new Vector2(0, 0);
-		if (PassthroughManager.Instance.QuadTree != null)
+		if (PassthroughManager.Instance.QuadTree?.Root != null)
 			DrawInternal(PassthroughManager.Instance.QuadTree.Root);
+		
+		foreach (var item in PassthroughManager.Instance.ScreenSpaceItems)
+		{
+			var screenRect = item.Bounds;
+			var cam = PassthroughManager.Instance.Camera;
+			Rect2 drawRect;
+			
+			if (cam != null)
+			{
+				var viewSize = GetViewport().GetVisibleRect().Size;
+				var camCenter = cam.GetScreenCenterPosition();
+				var zoom = cam.Zoom;
+
+				if (cam.AnchorMode == Camera2D.AnchorModeEnum.DragCenter)
+				{
+					var worldPos = camCenter + (screenRect.Position - viewSize / 2) / zoom;
+					var worldSize = screenRect.Size / zoom;
+					drawRect = new Rect2(worldPos / GlobalScale - GlobalPosition, worldSize / GlobalScale);
+				}
+				else
+				{
+					var worldPos = camCenter + screenRect.Position / zoom;
+					var worldSize = screenRect.Size / zoom;
+					drawRect = new Rect2(worldPos / GlobalScale - GlobalPosition, worldSize / GlobalScale);
+				}
+			}
+			else
+			{
+				drawRect = new Rect2(screenRect.Position / GlobalScale - GlobalPosition, screenRect.Size / GlobalScale);
+			}
+
+			DrawRect(drawRect, Colors.Yellow, false, 5);
+		}
 	}
 
 	private void DrawInternal(QuadTreeNode node)
