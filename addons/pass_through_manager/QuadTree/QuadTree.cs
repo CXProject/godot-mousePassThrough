@@ -70,9 +70,12 @@ public class QuadTree
 	//每个节点的最大物体数，超过这个数且没达到最大深度就分割下去
 	public int _maxItemCount;
 
-	public QuadTree(Rect2 rect, int maxDepth, int maxItemCount)
+	/// <summary>
+	/// 创建四叉树，根节点延迟到首次 Insert 时按物体范围自动确定
+	/// </summary>
+	public QuadTree(int maxDepth, int maxItemCount)
 	{
-		Root = new QuadTreeNode(rect);
+		Root = null;
 		_maxDepth = maxDepth;
 		_maxItemCount = maxItemCount;
 	}
@@ -90,7 +93,99 @@ public class QuadTree
 		if (item.CurrentNode != null)
 			Remove(item);
 
+		// 延迟初始化或动态扩展根节点以容纳新物体
+		if (Root == null)
+		{
+			Root = new QuadTreeNode(item.Bounds);
+			InsertInternal(Root, item, 0);
+			return;
+		}
+
+		ExpandRootToFit(item.Bounds);
 		InsertInternal(Root, item, 0);
+	}
+
+	/// <summary>
+	/// 动态扩展根节点使其能容纳给定的边界矩形
+	/// 通过在旧根上方包裹新的父节点来实现
+	/// </summary>
+	private void ExpandRootToFit(Rect2 bounds)
+	{
+		while (!ContainsRect(Root.Rect, bounds))
+		{
+			var current = Root.Rect;
+			var curEnd = current.Position + current.Size;
+			var boundsEnd = bounds.Position + bounds.Size;
+
+			// 计算能同时包含当前根和新物体的最小 AABB
+			var minX = Math.Min(current.Position.X, bounds.Position.X);
+			var minY = Math.Min(current.Position.Y, bounds.Position.Y);
+			var maxX = Math.Max(curEnd.X, boundsEnd.X);
+			var maxY = Math.Max(curEnd.Y, boundsEnd.Y);
+
+			// 取较大边确保正方形（四叉树要求）
+			var sizeX = maxX - minX;
+			var sizeY = maxY - minY;
+			var maxSize = Math.Max(sizeX, sizeY);
+
+			// 新根必须至少是旧根的2倍（尽量让旧根能放入一个象限）
+			var minExpandSize = Math.Max(current.Size.X, current.Size.Y) * 2;
+			maxSize = Math.Max(maxSize, minExpandSize);
+
+			var newRect = new Rect2(minX, minY, maxSize, maxSize);
+
+			// 创建新根并分裂为4个子象限
+			var newRoot = new QuadTreeNode(newRect);
+			Subdivide(newRoot);
+
+			// 尝试找到旧根属于哪个象限，将旧根替换进去（保留其完整子树）
+			bool foundQuadrant = false;
+			for (int i = 0; i < newRoot.children.Count; i++)
+			{
+				if (ContainsRect(newRoot.children[i].Rect, current))
+				{
+					newRoot.children[i] = Root;
+					Root.parent = newRoot;
+					foundQuadrant = true;
+					break;
+				}
+			}
+
+			if (!foundQuadrant)
+			{
+				// 旧根无法放入任何单个象限（因偏移导致），收集所有物品重新插入
+				var allItems = CollectAllItems(Root);
+				Root = newRoot;
+				foreach (var item in allItems)
+				{
+					item.CurrentNode = null;
+					InsertInternal(Root, item, 0);
+				}
+			}
+			else
+			{
+				Root = newRoot;
+			}
+		}
+	}
+
+	/// <summary>
+	/// 收集树中所有物品（用于扩展失败时的兜底重插入）
+	/// </summary>
+	private List<IQuadTreeItem> CollectAllItems(QuadTreeNode node)
+	{
+		var items = new List<IQuadTreeItem>();
+		CollectAllItemsInternal(node, items);
+		return items;
+	}
+
+	private void CollectAllItemsInternal(QuadTreeNode node, List<IQuadTreeItem> items)
+	{
+		items.AddRange(node.quadTreeItems);
+		foreach (var child in node.children)
+		{
+			CollectAllItemsInternal(child, items);
+		}
 	}
 
 	/// <summary>
@@ -128,6 +223,60 @@ public class QuadTree
 	}
 
 	/// <summary>
+	/// 收缩根节点：当所有物品都集中在某个子象限时，将该子象限提升为新的根。
+	/// 可递归收缩多层，直到物品分散在多个象限或到达叶子节点。
+	/// 通常在 Remove/Unregister 后调用以保持树紧凑。
+	/// </summary>
+	public void ShrinkRoot()
+	{
+		if (Root == null || Root.children.Count == 0) return;
+
+		while (Root.children.Count > 0)
+		{
+			// 找到唯一包含内容的子象限（其他3个必须完全为空）
+			QuadTreeNode activeChild = null;
+			bool canShrink = true;
+
+			for (int i = 0; i < Root.children.Count; i++)
+			{
+				var child = Root.children[i];
+				if (HasAnyContent(child))
+				{
+					if (activeChild == null)
+					{
+						activeChild = child;
+					}
+					else
+					{
+						// 多个子象限有内容，无法再收缩
+						canShrink = false;
+						break;
+					}
+				}
+			}
+
+			if (!canShrink || activeChild == null) break;
+
+			// 根节点自身持有跨象限的物品，不允许收缩
+			if (Root.quadTreeItems.Count > 0) break;
+
+			// 将活跃子象限提升为新根
+			activeChild.parent = null;
+			Root = activeChild;
+		}
+	}
+
+	private bool HasAnyContent(QuadTreeNode node)
+	{
+		if (node.quadTreeItems.Count > 0) return true;
+		foreach (var child in node.children)
+		{
+			if (HasAnyContent(child)) return true;
+		}
+		return false;
+	}
+
+	/// <summary>
 	/// 更新物体的位置
 	/// </summary>
 	/// <param name="item"></param>
@@ -153,6 +302,7 @@ public class QuadTree
 	/// <returns></returns>
 	public IQuadTreeItem GetHitItem(Vector2 pos)
 	{
+		if (Root == null) return null;
 		return SearchFirst(Root, pos);
 	}
 
@@ -164,8 +314,44 @@ public class QuadTree
 	public List<IQuadTreeItem> GetHitItems(Vector2 pos)
 	{
 		var items = new List<IQuadTreeItem>();
+		if (Root == null) return items;
 		Search(Root, pos, items);
 		return items;
+	}
+
+	/// <summary>
+	/// 按矩形范围查询所有与该矩形相交的物体（用于相机视口裁剪查询）
+	/// </summary>
+	public List<IQuadTreeItem> QueryByRect(Rect2 queryRect)
+	{
+		var items = new List<IQuadTreeItem>();
+		if (Root == null) return items;
+		var checkedIds = new HashSet<ulong>();
+		QueryByRectInternal(Root, queryRect, items, checkedIds);
+		return items;
+	}
+
+	private void QueryByRectInternal(QuadTreeNode node, Rect2 queryRect, List<IQuadTreeItem> results, HashSet<ulong> _checkedId)
+	{
+		if (!node.Rect.Intersects(queryRect))
+			return;
+
+		foreach (var item in node.quadTreeItems)
+		{
+			if (_checkedId.Contains(item.ItemID) == false)
+			{
+				results.Add(item);
+				_checkedId.Add(item.ItemID);
+			}
+		}
+
+		if (node.children.Count > 0)
+		{
+			foreach (var child in node.children)
+			{
+				QueryByRectInternal(child, queryRect, results, _checkedId);
+			}
+		}
 	}
 
 	#region internal helpers

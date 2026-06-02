@@ -25,9 +25,6 @@ public partial class PassthroughManager : Node
 	private int _maxDepth;
 	private int _maxItemCount;
 
-	private Vector2 _cam_pos;
-	private Vector2 _cam_zoom;
-
 	[Signal] public delegate void QuadTreeUpdateEventHandler();
 
 	public override void _Ready()
@@ -54,30 +51,13 @@ public partial class PassthroughManager : Node
 		_maxDepth = maxDepth;
 		_maxItemCount = maxItemCount;
 		Camera = camera;
-		RebuildData(keepExistingAreas);
+		BuildQuadTree(keepExistingAreas);
 		_forceClickableNodes.Clear();
 	}
 
-	private void RebuildData(bool keepExistingAreas)
+	private void BuildQuadTree(bool keepExistingAreas)
 	{
-		var rect = _provider.Window.GetVisibleRect();
-		if (Camera != null)
-		{
-			_cam_pos = Camera.GlobalPosition;
-			_cam_zoom = Camera.Zoom;
-			var size = rect.Size / Camera.Zoom;
-			switch (Camera.AnchorMode)
-			{
-				case Camera2D.AnchorModeEnum.FixedTopLeft:
-					rect = new Rect2(Camera.GlobalPosition, size);
-					break;
-				case Camera2D.AnchorModeEnum.DragCenter:
-					rect = new Rect2(Camera.GlobalPosition - size / 2, size);
-					break;
-			}
-		}
-
-		QuadTree = new QuadTree(rect, _maxDepth, _maxItemCount);
+		QuadTree = new QuadTree(_maxDepth, _maxItemCount);
 		if (keepExistingAreas)
 		{
 			foreach (var item in _clickAreas.Values)
@@ -93,10 +73,9 @@ public partial class PassthroughManager : Node
 		_isUpdated = true;
 	}
 
-	public void SetMainCamera(Camera2D camera, bool keepExistingAreas = true)
+	public void SetMainCamera(Camera2D camera)
 	{
 		Camera = camera;
-		RebuildData(keepExistingAreas);
 	}
 
 	public void RegisterPolygon2DClickArea(Polygon2D poly)
@@ -135,6 +114,7 @@ public partial class PassthroughManager : Node
 				_isUpdated = true;
 			}
 		}
+		if (QuadTree != null) QuadTree.ShrinkRoot();
 	}
 
 	/// <summary>
@@ -149,6 +129,7 @@ public partial class PassthroughManager : Node
 		if (QuadTree.Update(_clickAreas[instanceId]))
 		{
 			_isUpdated = true;
+			QuadTree.ShrinkRoot();
 		}
 	}
 
@@ -174,6 +155,7 @@ public partial class PassthroughManager : Node
 			_clickAreas.Remove(instanceId);
 			if (QuadTree == null) return;
 			QuadTree.Remove(area);
+			QuadTree.ShrinkRoot();
 			_isUpdated = true;
 		}
 	}
@@ -184,37 +166,51 @@ public partial class PassthroughManager : Node
 		OnQuadTreeUpdate();
 		if (ForceClickable) return;
 
-		// 获取鼠标在屏幕空间的坐标
-		var mousePos = GetViewport().GetMousePosition();
+		var mouseScreenPos = GetViewport().GetMousePosition();
+		Vector2 worldMousePos;
+		Rect2 viewWorldRect;
 
 		if (Camera != null)
 		{
+			var viewSize = GetViewport().GetVisibleRect().Size;
+			var camCenter = Camera.GetScreenCenterPosition();
+			var zoom = Camera.Zoom;
+
 			if (Camera.AnchorMode == Camera2D.AnchorModeEnum.DragCenter)
 			{
-				//如果是中心点为相机锚点，则鼠标坐标和相机坐标有个半个视口大小的便宜
-				var viewSize = GetViewport().GetVisibleRect().Size;
-				mousePos = Camera.GlobalPosition + (mousePos - viewSize / 2) / Camera.Zoom;
+				worldMousePos = camCenter + (mouseScreenPos - viewSize / 2) / zoom;
+				var worldSize = viewSize / zoom;
+				viewWorldRect = new Rect2(camCenter - worldSize / 2, worldSize);
 			}
-			else
+			else // FixedTopLeft
 			{
-				// 如果锚点在左上角就和鼠标坐标原点相同，所以直接使用鼠标位置，并根据相机缩放反向缩放下鼠标坐标
-				mousePos = Camera.GlobalPosition + mousePos / Camera.Zoom;
+				worldMousePos = camCenter + mouseScreenPos / zoom;
+				var worldSize = viewSize / zoom;
+				viewWorldRect = new Rect2(camCenter, worldSize);
 			}
-
-			if (QuadTree.Root.Rect.HasPoint(mousePos) == false)
-			{
-				if (_cam_pos != Camera.GlobalPosition || _cam_zoom != Camera.Zoom)
-				{
-					RebuildData(true);
-				}
-			}
-
+		}
+		else
+		{
+			// 无相机时使用窗口可视矩形作为世界范围
+			viewWorldRect = _provider.Window.GetVisibleRect();
+			worldMousePos = mouseScreenPos;
 		}
 
-		// 根据鼠标位置查询 QuadTree，判断是否有可点击区域
-		var item = QuadTree.GetHitItem(mousePos);
-		// 如果没有命中任何区域，设置窗口穿透鼠标事件
-		_provider.SetClickthrough(item == null);
+		// 1. 用视口矩形从四叉树中获取候选物体集合
+		var candidates = QuadTree.QueryByRect(viewWorldRect);
+
+		// 2. 在候选集中做精确命中检测
+		IQuadTreeItem hitItem = null;
+		foreach (var item in candidates)
+		{
+			if (item.IsHit(worldMousePos))
+			{
+				hitItem = item;
+				break;
+			}
+		}
+
+		_provider.SetClickthrough(hitItem == null);
 	}
 
 	private HashSet<ulong> _forceClickableNodes = new HashSet<ulong>();
