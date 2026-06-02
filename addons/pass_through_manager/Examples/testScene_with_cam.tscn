@@ -10,7 +10,7 @@ script = ExtResource("1_c8ebr")
 cam = NodePath("Camera2D")
 
 [node name="moveIcon" type="Sprite2D" parent="." unique_id=219685888]
-position = Vector2(72, 546)
+position = Vector2(627, -20)
 texture = ExtResource("2_dxqf8")
 script = ExtResource("3_41bsm")
 
@@ -19,34 +19,34 @@ script = ExtResource("3_41bsm")
 [node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="moveIcon/Area2D" unique_id=5142433]
 polygon = PackedVector2Array(-61, -59, -60, 60, 64, 62, 63, -62)
 
-[node name="moveIcon4" type="Sprite2D" parent="." unique_id=390688553]
-position = Vector2(1859, 571)
+[node name="moveIcon2" type="Sprite2D" parent="." unique_id=1718831467]
+position = Vector2(662, 764)
 texture = ExtResource("2_dxqf8")
 script = ExtResource("3_41bsm")
 
-[node name="Area2D" type="Area2D" parent="moveIcon4" unique_id=1396001220]
+[node name="Area2D" type="Area2D" parent="moveIcon2" unique_id=1074307828]
 
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="moveIcon4/Area2D" unique_id=58314684]
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="moveIcon2/Area2D" unique_id=1841143394]
 polygon = PackedVector2Array(-61, -59, -60, 60, 64, 62, 63, -62)
 
-[node name="moveIcon2" type="Sprite2D" parent="." unique_id=1543723705]
-position = Vector2(927, 61)
+[node name="moveIcon3" type="Sprite2D" parent="." unique_id=1717631971]
+position = Vector2(1325, 598)
 texture = ExtResource("2_dxqf8")
 script = ExtResource("3_41bsm")
 
-[node name="Area2D" type="Area2D" parent="moveIcon2" unique_id=1477082876]
+[node name="Area2D" type="Area2D" parent="moveIcon3" unique_id=267157692]
 
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="moveIcon2/Area2D" unique_id=1479058414]
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="moveIcon3/Area2D" unique_id=1749977934]
 polygon = PackedVector2Array(-61, -59, -60, 60, 64, 62, 63, -62)
 
-[node name="moveIcon3" type="Sprite2D" parent="." unique_id=1857380816]
-position = Vector2(1011, 1010)
+[node name="moveIcon4" type="Sprite2D" parent="." unique_id=501367634]
+position = Vector2(-88, 419)
 texture = ExtResource("2_dxqf8")
 script = ExtResource("3_41bsm")
 
-[node name="Area2D" type="Area2D" parent="moveIcon3" unique_id=611985673]
+[node name="Area2D" type="Area2D" parent="moveIcon4" unique_id=1701389303]
 
-[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="moveIcon3/Area2D" unique_id=630451606]
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="moveIcon4/Area2D" unique_id=420770734]
 polygon = PackedVector2Array(-61, -59, -60, 60, 64, 62, 63, -62)
 
 [node name="DrawGizmo" type="Node2D" parent="." unique_id=1556574122]
@@ -55,3 +55,17 @@ script = ExtResource("4_3whw2")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1824450138]
 position = Vector2(826, 118)
+zoom = Vector2(0.625, 0.625)
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=2004498465]
+
+[node name="Canvas_moveIcon" type="Sprite2D" parent="CanvasLayer" unique_id=330374526]
+modulate = Color(1, 0.2784314, 1, 1)
+position = Vector2(94, 88)
+texture = ExtResource("2_dxqf8")
+script = ExtResource("3_41bsm")
+
+[node name="Area2D" type="Area2D" parent="CanvasLayer/Canvas_moveIcon" unique_id=1669255327]
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="CanvasLayer/Canvas_moveIcon/Area2D" unique_id=1369832434]
+polygon = PackedVector2Array(-61, -59, -60, 60, 64, 62, 63, -62)

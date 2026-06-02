@@ -1,3 +1,50 @@
+## 更新日志
+
+### v1.1.0
+
+**架构重构：世界空间四叉树 + 相机查询过滤**
+- 将四叉树从与相机绑定的视口空间改为独立的世界空间构建，相机仅作为每帧查询过滤器
+- 新增 `QueryByRect(Rect2)` 方法，支持按矩形范围批量查询候选区域
+- 命中检测改为两阶段流程：先通过相机视口矩形裁剪筛选候选区域，再对候选执行精确的点命中测试
+- 移除 `RebuildData` 中对相机位置/缩放的依赖，`SetMainCamera` 不再触发四叉树重建
+
+**四叉树动态扩缩容**
+- **延迟初始化**：根节点在首次 Insert 时才按物体范围创建，避免预设大范围浪费深度层
+- **动态扩展（ExpandRootToFit）**：物体超出根节点范围时自动向上包裹新父节点，保证至少 2 倍大小以容纳旧子树；若偏移导致无法放入任何象限则兜底重插入所有物品
+- **智能收缩（ShrinkRoot）**：所有内容集中在单个子象限时提升为新根；若根节点持有跨象限物品则阻止收缩，防止数据丢失
+- 收缩逻辑已集成到 `UnregisterClickArea`、`UpdateClickArea`、`UpdateAllClickArea`
+
+**CanvasLayer 支持**
+- 新增双路径存储架构，同时支持屏幕空间物品和世界空间物品：
+  - `FollowViewport = false` 的 CanvasLayer 节点归入屏幕空间列表，使用视口坐标命中检测
+  - `FollowViewport = true` 的 CanvasLayer 节点归入世界四叉树，使用世界坐标命中检测
+- 新增 `CheckCanvasLayer` 方法，自动检测节点所属 CanvasLayer 类型并分类存储
+- 命中检测改为两阶段流程：先遍历屏幕空间物品（优先级更高），再通过四叉树查询世界空间物品
+- 注册 `FollowViewportScale != 1.0` 的物品时输出警告日志，提示点击检测可能不准确
+- `IQuadTreeItem` 接口新增 `RootNode` 属性，支持从物品侧向上查找父级 CanvasLayer
+
+**Bug 修复**
+- 修复 `Remove()` 方法条件判断反转导致的移除失败
+- 修复 `ExpandRootToFit` 因象限对齐问题导致物品丢失的问题
+- 修复 `ShrinkRoot` 收缩时丢弃根节点跨象限物品导致无法点击的问题
+
+---
+
+## 已知限制
+
+### CanvasLayer `FollowViewportScale` 非标准值暂不支持
+
+当 `CanvasLayer.FollowViewportEnabled = true` 且 `FollowViewportScale != 1.0` 时，该层内节点的坐标变换为混合坐标系（位置跟随相机但缩放速率不同），与四叉树的世界坐标查询和屏幕坐标查询均无法正确对齐。
+
+**当前行为**：此类物品会被归入四叉树（世界空间），但命中检测可能不准确。
+**建议**：如需使用非 1.0 的 `FollowViewportScale`，暂时将 `FollowViewportEnabled` 设为 `false`，物品将走屏幕空间路径正常工作。
+
+## TODO
+
+- [ ] 支持 CanvasLayer `FollowViewport=true, Scale!=1.0` 的混合坐标系点击检测
+
+---
+
 ## Godot 要求
 - Godot.net 4.6 或更高版本
 ## Setup
@@ -73,8 +120,8 @@
 - **参数**:
   - `camera` (Camera2D): 主相机对象
 - **返回值**: void
-- **说明**: 设置主相机并重建四叉树数据
-- **用途**: 在运行时动态更换主相机，确保 QuadTree 区域与新相机视口一致
+- **说明**: 设置主相机用于视口裁剪查询
+- **用途**: 四叉树以世界空间构建，不与相机绑定。相机仅作为每帧的查询过滤器，将世界坐标的鼠标位置转换为相机视口矩形进行区域筛选
 - **示例**:
   ```csharp
   var newCamera = GetNode<Camera2D>("NewCamera");
@@ -194,7 +241,7 @@ PassthroughManager.Instance.QuadTreeUpdate += OnClickAreasUpdated;
 // 当节点移动时，更新其点击区域
 if (nodePosition != previousPosition)
 {
-    PassthroughManager.Instance.UpdateClickArea(node);
+	PassthroughManager.Instance.UpdateClickArea(node);
 }
 ```
 
@@ -203,7 +250,7 @@ if (nodePosition != previousPosition)
 // 当节点删除时
 public override void _ExitTree()
 {
-    PassthroughManager.Instance.UnregisterClickArea(this);
+	PassthroughManager.Instance.UnregisterClickArea(this);
 }
 ```
 
@@ -211,20 +258,44 @@ public override void _ExitTree()
 
 ## 内部实现细节
 
+### 架构概览
+
+插件采用 **世界空间四叉树 + 相机查询过滤** 的两阶段架构：
+
+1. **四叉树（QuadTree）**: 以世界坐标构建，存储所有注册的点击区域，与相机完全解耦
+2. **相机（Camera）**: 仅作为每帧的查询过滤器，不参与四叉树结构
+3. **两阶段命中检测**:
+   - **阶段一**：根据相机视口的世界矩形 (`QueryByRect`) 快速筛选候选区域
+   - **阶段二**：对候选区域内的物品执行精确的点命中测试 (`IsHit`)
+
+### 四叉树特性
+
+- **延迟初始化**：根节点在首次 `Insert` 时才创建，避免预设大范围浪费深度
+- **动态扩展（ExpandRootToFit）**：当新物体超出当前根节点范围时，自动向上包裹新的父节点
+  - 保证新根至少为旧根 2 倍大小，确保旧子树能放入单个象限
+  - 若因偏移导致无法放入任何象限，触发 `CollectAllItems` 兜底重插入所有物品
+- **智能收缩（ShrinkRoot）**：当所有内容集中在单个子象限时，提升该子象限为新根
+  - **安全约束**：若根节点自身持有跨象限物品（`quadTreeItems` 不为空），则阻止收缩，防止丢失数据
+- **跨象限处理**：无法放入任何单个子象限的物品会保留在父节点的 `quadTreeItems` 中
+
+### 核心字段
+
 - **_clickAreas**: 存储所有注册的点击区域（字典，key为实例ID）
-- **_provider**: 平台相关的穿透提供者实例
+- **_provider**: 平台相关的穿透提供者实例（Windows 使用 `WindowsPassthroughProvider`，其他平台使用 `DefaultPassthroughProvider`）
 - **_forceClickableNodes**: 强制可点击节点集合
-- **_isUpdated**: 标记四叉树是否需要更新
+- **QuadTree**: 世界空间四叉树实例，支持动态扩缩容
 
 ---
 
 ## 关键特性
 
-✅ **四叉树优化**: 使用四叉树实现高效的空间查询  
-✅ **跨平台支持**: Windows 使用原生 API，其他平台有默认实现  
-✅ **单例模式**: 全局唯一实例，便于访问  
-✅ **信号系统**: 集成 Godot 信号，方便外部监听  
-✅ **灵活注册**: 支持多种碰撞形状（Polygon2D、CollisionPolygon2D、CollisionShape2D）  
+✅ **世界空间四叉树**: 与相机完全解耦，以世界坐标构建，支持动态扩缩容  
+✅ **两阶段查询**: 视口矩形裁剪 → 精确命中测试，高效且准确  
+✅ **动态根节点扩展/收缩**: 自动适应物体分布，保持四叉树紧凑和高效  
+✅ **跨平台支持**: Windows 使用原生 API (`WS_EX_TRANSPARENT`)，其他平台使用 Godot 的 `MousePassthroughPolygon`  
+✅ **单例模式**: 全局唯一实例（AutoLoad），便于访问  
+✅ **信号系统**: 集成 Godot 信号（`QuadTreeUpdate`），方便外部监听  
+✅ **灵活注册**: 支持多种碰撞形状（`Polygon2D`、`CollisionPolygon2D`、`CollisionShape2D`）  
 
 ## 参考
 https://github.com/Darnoman/Godot-Clickthrough-Addon
