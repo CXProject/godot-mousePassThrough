@@ -55,10 +55,9 @@ script = ExtResource("4_3whw2")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1824450138]
 position = Vector2(826, 118)
+zoom = Vector2(0.625, 0.625)
 
 [node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=2004498465]
-follow_viewport_enabled = true
-follow_viewport_scale = 0.5
 
 [node name="Canvas_moveIcon" type="Sprite2D" parent="CanvasLayer" unique_id=330374526]
 modulate = Color(1, 0.2784314, 1, 1)

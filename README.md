@@ -14,10 +14,34 @@
 - **智能收缩（ShrinkRoot）**：所有内容集中在单个子象限时提升为新根；若根节点持有跨象限物品则阻止收缩，防止数据丢失
 - 收缩逻辑已集成到 `UnregisterClickArea`、`UpdateClickArea`、`UpdateAllClickArea`
 
+**CanvasLayer 支持**
+- 新增双路径存储架构，同时支持屏幕空间物品和世界空间物品：
+  - `FollowViewport = false` 的 CanvasLayer 节点归入屏幕空间列表，使用视口坐标命中检测
+  - `FollowViewport = true` 的 CanvasLayer 节点归入世界四叉树，使用世界坐标命中检测
+- 新增 `CheckCanvasLayer` 方法，自动检测节点所属 CanvasLayer 类型并分类存储
+- 命中检测改为两阶段流程：先遍历屏幕空间物品（优先级更高），再通过四叉树查询世界空间物品
+- 注册 `FollowViewportScale != 1.0` 的物品时输出警告日志，提示点击检测可能不准确
+- `IQuadTreeItem` 接口新增 `RootNode` 属性，支持从物品侧向上查找父级 CanvasLayer
+
 **Bug 修复**
 - 修复 `Remove()` 方法条件判断反转导致的移除失败
 - 修复 `ExpandRootToFit` 因象限对齐问题导致物品丢失的问题
 - 修复 `ShrinkRoot` 收缩时丢弃根节点跨象限物品导致无法点击的问题
+
+---
+
+## 已知限制
+
+### CanvasLayer `FollowViewportScale` 非标准值暂不支持
+
+当 `CanvasLayer.FollowViewportEnabled = true` 且 `FollowViewportScale != 1.0` 时，该层内节点的坐标变换为混合坐标系（位置跟随相机但缩放速率不同），与四叉树的世界坐标查询和屏幕坐标查询均无法正确对齐。
+
+**当前行为**：此类物品会被归入四叉树（世界空间），但命中检测可能不准确。
+**建议**：如需使用非 1.0 的 `FollowViewportScale`，暂时将 `FollowViewportEnabled` 设为 `false`，物品将走屏幕空间路径正常工作。
+
+## TODO
+
+- [ ] 支持 CanvasLayer `FollowViewport=true, Scale!=1.0` 的混合坐标系点击检测
 
 ---
 

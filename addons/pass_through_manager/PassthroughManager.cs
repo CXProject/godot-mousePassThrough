@@ -17,6 +17,7 @@ public interface IPassthroughProvider
 public partial class PassthroughManager : Node
 {
 	private Dictionary<ulong, IQuadTreeItem> _clickAreas = new Dictionary<ulong, IQuadTreeItem>();
+	private List<IQuadTreeItem> _screenSpaceItems = new List<IQuadTreeItem>();
 	private IPassthroughProvider _provider;
 	public QuadTree QuadTree { get; private set; }
 	public static PassthroughManager Instance { get; private set; }
@@ -58,11 +59,16 @@ public partial class PassthroughManager : Node
 	private void BuildQuadTree(bool keepExistingAreas)
 	{
 		QuadTree = new QuadTree(_maxDepth, _maxItemCount);
+		_screenSpaceItems.Clear();
 		if (keepExistingAreas)
 		{
 			foreach (var item in _clickAreas.Values)
 			{
-				QuadTree.Insert(item);
+				item.Update();
+				if (CheckIsScreenSpace(item.RootNode))
+					_screenSpaceItems.Add(item);
+				else
+					QuadTree.Insert(item);
 			}
 		}
 		else
@@ -78,13 +84,42 @@ public partial class PassthroughManager : Node
 		Camera = camera;
 	}
 
+	/// <summary>
+	/// 检测节点所属的 CanvasLayer 类型，同时检查 FollowViewportScale 是否为非标准值
+	/// </summary>
+	private bool CheckIsScreenSpace(Node2D node)
+	{
+		var current = node.GetParent();
+		while (current != null)
+		{
+			if (current is CanvasLayer canvasLayer)
+			{
+				var isScreen = !canvasLayer.FollowViewportEnabled;
+				var warn = canvasLayer.FollowViewportEnabled
+					&& !Mathf.IsEqualApprox(canvasLayer.FollowViewportScale, 1f);
+				if (warn)
+				{
+					GD.PushWarning($"[PassthroughManager] 节点 '{node.Name}' 位于 CanvasLayer 中，" +
+						$"FollowViewportEnabled=true 但 FollowViewportScale={canvasLayer.FollowViewportScale}（非1.0），" +
+						$"点击检测可能不准确。详见 README「已知限制」章节。");
+				}
+				return isScreen;
+			}
+			current = current.GetParent();
+		}
+		return false;
+	}
+
 	public void RegisterPolygon2DClickArea(Polygon2D poly)
 	{
 		var instanceId = poly.GetInstanceId();
 		if (_clickAreas.ContainsKey(instanceId)) return;
 		_clickAreas[instanceId] = new Polygon2DItem(poly);
 		if (QuadTree == null) return;
-		QuadTree.Insert(_clickAreas[instanceId]);
+		if (CheckIsScreenSpace(poly))
+			_screenSpaceItems.Add(_clickAreas[instanceId]);
+		else
+			QuadTree.Insert(_clickAreas[instanceId]);
 		_isUpdated = true;
 	}
 
@@ -93,13 +128,15 @@ public partial class PassthroughManager : Node
 		var instanceId = poly.GetInstanceId();
 		if (_clickAreas.ContainsKey(instanceId))
 		{
-			//刷新区域
 			UpdateClickArea(poly);
 			return;
 		}
 		_clickAreas[instanceId] = new CollisionPloygon2DItem(poly);
 		if (QuadTree == null) return;
-		QuadTree.Insert(_clickAreas[instanceId]);
+		if (CheckIsScreenSpace(poly))
+			_screenSpaceItems.Add(_clickAreas[instanceId]);
+		else
+			QuadTree.Insert(_clickAreas[instanceId]);
 		_isUpdated = true;
 	}
 
@@ -109,6 +146,8 @@ public partial class PassthroughManager : Node
 		{
 			item.Update();
 			if (QuadTree == null) continue;
+			if (_screenSpaceItems.Contains(item))
+				continue; // 屏幕空间物品不需要四叉树操作
 			if (QuadTree.Update(item))
 			{
 				_isUpdated = true;
@@ -124,9 +163,11 @@ public partial class PassthroughManager : Node
 	{
 		var instanceId = root.GetInstanceId();
 		if (_clickAreas.ContainsKey(instanceId) == false) return;
-		_clickAreas[instanceId].Update();
-		if (QuadTree == null) return;
-		if (QuadTree.Update(_clickAreas[instanceId]))
+		var item = _clickAreas[instanceId];
+		item.Update();
+		if (_screenSpaceItems.Contains(item) || QuadTree == null)
+			return; // 屏幕空间物品只需更新数据
+		if (QuadTree.Update(item))
 		{
 			_isUpdated = true;
 			QuadTree.ShrinkRoot();
@@ -139,7 +180,10 @@ public partial class PassthroughManager : Node
 		if (_clickAreas.ContainsKey(instanceId)) return;
 		_clickAreas[instanceId] = new CollisionShape2DItem(shape);
 		if (QuadTree == null) return;
-		QuadTree.Insert(_clickAreas[instanceId]);
+		if (CheckIsScreenSpace(shape))
+			_screenSpaceItems.Add(_clickAreas[instanceId]);
+		else
+			QuadTree.Insert(_clickAreas[instanceId]);
 		_isUpdated = true;
 	}
 
@@ -153,6 +197,7 @@ public partial class PassthroughManager : Node
 		{
 			var area = _clickAreas[instanceId];
 			_clickAreas.Remove(instanceId);
+			_screenSpaceItems.Remove(area);
 			if (QuadTree == null) return;
 			QuadTree.Remove(area);
 			QuadTree.ShrinkRoot();
@@ -191,22 +236,32 @@ public partial class PassthroughManager : Node
 		}
 		else
 		{
-			// 无相机时使用窗口可视矩形作为世界范围
 			viewWorldRect = _provider.Window.GetVisibleRect();
 			worldMousePos = mouseScreenPos;
 		}
 
-		// 1. 用视口矩形从四叉树中获取候选物体集合
-		var candidates = QuadTree.QueryByRect(viewWorldRect);
-
-		// 2. 在候选集中做精确命中检测
+		// Phase 1: 屏幕空间物品（CanvasLayer FollowViewport=false 或 Scale!=1.0）
 		IQuadTreeItem hitItem = null;
-		foreach (var item in candidates)
+		foreach (var item in _screenSpaceItems)
 		{
-			if (item.IsHit(worldMousePos))
+			if (item.IsHit(mouseScreenPos))
 			{
 				hitItem = item;
 				break;
+			}
+		}
+
+		// Phase 2: 世界空间物品（四叉树两阶段查询）
+		if (hitItem == null)
+		{
+			var candidates = QuadTree.QueryByRect(viewWorldRect);
+			foreach (var item in candidates)
+			{
+				if (item.IsHit(worldMousePos))
+				{
+					hitItem = item;
+					break;
+				}
 			}
 		}
 

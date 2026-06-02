@@ -10,6 +10,11 @@ public interface IQuadTreeItem
 	public QuadTreeNode CurrentNode { get; set; }
 
 	/// <summary>
+	/// 关联的根节点（用于检测 CanvasLayer 等属性）
+	/// </summary>
+	public Node2D RootNode { get; }
+
+	/// <summary>
 	/// 物体的包围矩形，用于决定它应该位于哪一个子节点中。
 	/// 如果物体跨越多个子节点，这个矩形可能不被任何一个子节点完全包含，
 	/// 那么该物体会留在父节点中。

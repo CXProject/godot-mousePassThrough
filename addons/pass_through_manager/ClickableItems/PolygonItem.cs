@@ -32,6 +32,7 @@ public class CollisionPloygon2DItem : PolygonItemBase
 public abstract class PolygonItemBase : IQuadTreeItem
 {
 	public QuadTreeNode CurrentNode { get; set; }
+	public Node2D RootNode => root;
 
 	public Rect2 Bounds { get; protected set; }
 
