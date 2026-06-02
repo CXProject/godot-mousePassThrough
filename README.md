@@ -23,11 +23,6 @@
 - 注册 `FollowViewportScale != 1.0` 的物品时输出警告日志，提示点击检测可能不准确
 - `IQuadTreeItem` 接口新增 `RootNode` 属性，支持从物品侧向上查找父级 CanvasLayer
 
-**Bug 修复**
-- 修复 `Remove()` 方法条件判断反转导致的移除失败
-- 修复 `ExpandRootToFit` 因象限对齐问题导致物品丢失的问题
-- 修复 `ShrinkRoot` 收缩时丢弃根节点跨象限物品导致无法点击的问题
-
 ---
 
 ## 已知限制
