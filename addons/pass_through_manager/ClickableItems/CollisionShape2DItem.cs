@@ -11,6 +11,10 @@ public class CollisionShape2DItem : IQuadTreeItem
     public ulong ItemID { get; private set; }
 
     private CollisionShape2D _shape;
+    private readonly CircleShape2D _point_shape = new CircleShape2D
+    {
+        Radius = 0f
+    };
     public bool IsHit(Vector2 pos)
     {
         if (_shape == null)
@@ -20,11 +24,7 @@ public class CollisionShape2DItem : IQuadTreeItem
         }
 
         var point_tf = new Transform2D(0.0f, pos);
-        var point_shape = new CircleShape2D
-        {
-            Radius = 0f
-        };
-        return _shape.Shape.Collide(_shape.GlobalTransform, point_shape, point_tf);
+        return _shape.Shape.Collide(_shape.GlobalTransform, _point_shape, point_tf);
     }
 
     public CollisionShape2DItem(CollisionShape2D shape)

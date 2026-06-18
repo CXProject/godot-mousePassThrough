@@ -22,7 +22,12 @@ public partial class PassthroughManager : Node
 	public QuadTree QuadTree { get; private set; }
 	public IReadOnlyList<IQuadTreeItem> ScreenSpaceItems => _screenSpaceItems;
 	public static PassthroughManager Instance { get; private set; }
-	public Camera2D Camera { get; set; }
+	private Camera2D _camera;
+	public Camera2D Camera
+	{
+		get => GodotObject.IsInstanceValid(_camera) ? _camera : null;
+		set => _camera = value;
+	}
 
 	private int _maxDepth;
 	private int _maxItemCount;
