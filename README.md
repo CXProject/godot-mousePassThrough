@@ -2,6 +2,13 @@
 
 ### v1.1.0
 
+**fix bug: CollisionShape2DItem memory leak**
+- 修复 `CollisionShape2DItem.IsHit()` 方法中的内存泄漏：原实现每次命中检测都通过 `new CircleShape2D` 创建临时点形状对象，高频调用下导致持续分配和 GC 压力
+- **优化方案**：将点形状对象提升为类级别 `readonly` 字段 `_point_shape`，在实例化时创建一次并复用，避免重复分配
+
+**fix bug: Camera 属性安全性**
+- 修复 `Camera` 公共属性的安全性问题：将内部存储字段改为私有 `_camera`，getter 添加 `GodotObject.IsInstanceValid()` 校验，防止访问已释放的相机节点导致异常
+
 **架构重构：世界空间四叉树 + 相机查询过滤**
 - 将四叉树从与相机绑定的视口空间改为独立的世界空间构建，相机仅作为每帧查询过滤器
 - 新增 `QueryByRect(Rect2)` 方法，支持按矩形范围批量查询候选区域
