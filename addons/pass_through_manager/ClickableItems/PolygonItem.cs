@@ -32,16 +32,16 @@ public class CollisionPloygon2DItem : PolygonItemBase
 public abstract class PolygonItemBase : IQuadTreeItem
 {
 	public QuadTreeNode CurrentNode { get; set; }
-	public Node2D RootNode => root;
+	public CanvasItem RootNode => root;
 
 	public Rect2 Bounds { get; protected set; }
 
 	public ulong ItemID { get; protected set; }
-	protected Node2D root;
+	protected CanvasItem root;
 
 	private Vector2[] _polygon;
 
-	public PolygonItemBase(Node2D r)
+	public PolygonItemBase(CanvasItem r)
 	{
 		root = r;
 		ItemID = root.GetInstanceId();
@@ -60,13 +60,20 @@ public abstract class PolygonItemBase : IQuadTreeItem
 
 	protected void SetPolygon(Vector2[] polygon)
 	{
-		for (var i = 0; i < polygon.Length; i++)
+		if (root is Node2D node2D)
 		{
-			polygon[i] = root.ToGlobal(polygon[i]);
+			for (var i = 0; i < polygon.Length; i++)
+			{
+				polygon[i] = node2D.ToGlobal(polygon[i]);
+			}
+			Bounds = GetPolygonAABB(polygon);
+			_polygon = polygon;
 		}
-
-		Bounds = GetPolygonAABB(polygon);
-		_polygon = polygon;
+		else if (root is Control)
+		{
+			Bounds = GetPolygonAABB(polygon);
+			_polygon = polygon;
+		}
 	}
 
 	protected Rect2 GetPolygonAABB(Vector2[] poly)
