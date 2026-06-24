@@ -93,7 +93,7 @@ public partial class PassthroughManager : Node
 	/// <summary>
 	/// 检测节点所属的 CanvasLayer 类型，同时检查 FollowViewportScale 是否为非标准值
 	/// </summary>
-	private bool CheckIsScreenSpace(Node2D node)
+	private bool CheckIsScreenSpace(CanvasItem node)
 	{
 		var current = node.GetParent();
 		while (current != null)
@@ -129,6 +129,19 @@ public partial class PassthroughManager : Node
 		_isUpdated = true;
 	}
 
+	public void RegisterControlClickArea(Control ctrl)
+	{
+		var instanceId = ctrl.GetInstanceId();
+		if (_clickAreas.ContainsKey(instanceId)) return;
+		_clickAreas[instanceId] = new ControlItem(ctrl);
+		if (QuadTree == null) return;
+		if (CheckIsScreenSpace(ctrl))
+			_screenSpaceItems.Add(_clickAreas[instanceId]);
+		else
+			QuadTree.Insert(_clickAreas[instanceId]);
+		_isUpdated = true;
+	}
+
 	public void RegisterCollisionPolygon2DClickArea(CollisionPolygon2D poly)
 	{
 		var instanceId = poly.GetInstanceId();
@@ -144,6 +157,30 @@ public partial class PassthroughManager : Node
 		else
 			QuadTree.Insert(_clickAreas[instanceId]);
 		_isUpdated = true;
+	}
+
+	public void RegisterClickArea(CanvasItem root)
+	{
+		if (root is Control control)
+		{
+			RegisterControlClickArea(control);
+		}
+		else if (root is Polygon2D polygon)
+		{
+			RegisterPolygon2DClickArea(polygon);
+		}
+		else if (root is CollisionPolygon2D collisionPolygon)
+		{
+			RegisterCollisionPolygon2DClickArea(collisionPolygon);
+		}
+		else if (root is CollisionShape2D shape2D)
+		{
+			RegisterCollisionShape2DClickArea(shape2D);
+		}
+		else
+		{
+			GD.PushError("[PassthroughManager] Not supported CanvasItem.");
+		}
 	}
 
 	public void UpdateAllClickArea()
@@ -165,7 +202,7 @@ public partial class PassthroughManager : Node
 	/// <summary>
 	/// 更新一个鼠标可点击区域
 	/// </summary>
-	public void UpdateClickArea(Node2D root)
+	public void UpdateClickArea(CanvasItem root)
 	{
 		var instanceId = root.GetInstanceId();
 		if (_clickAreas.ContainsKey(instanceId) == false) return;
@@ -196,7 +233,7 @@ public partial class PassthroughManager : Node
 	/// <summary>
 	/// 注销一个鼠标可点击区域
 	/// </summary>
-	public void UnregisterClickArea(Node2D root)
+	public void UnregisterClickArea(CanvasItem root)
 	{
 		var instanceId = root.GetInstanceId();
 		if (_clickAreas.ContainsKey(instanceId))

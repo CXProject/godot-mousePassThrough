@@ -4,7 +4,7 @@ using System;
 public class CollisionShape2DItem : IQuadTreeItem
 {
     public QuadTreeNode CurrentNode { get; set; }
-    public Node2D RootNode => _shape;
+    public CanvasItem RootNode => _shape;
 
     public Rect2 Bounds { get; private set; }
 
