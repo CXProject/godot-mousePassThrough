@@ -12,7 +12,7 @@ public class ControlItem : PolygonItemBase
     {
         if (_control == null) return;
 
-        var rect = _control.GetRect();
+        var rect = _control.GetGlobalRect();
 
         Vector2[] polygon =
         [
