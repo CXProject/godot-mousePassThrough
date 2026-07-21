@@ -37,11 +37,11 @@ public abstract class PolygonItemBase : IQuadTreeItem
 	public Rect2 Bounds { get; protected set; }
 
 	public ulong ItemID { get; protected set; }
-	protected CanvasItem root;
+	protected Node2D root;
 
 	private Vector2[] _polygon;
 
-	public PolygonItemBase(CanvasItem r)
+	public PolygonItemBase(Node2D r)
 	{
 		root = r;
 		ItemID = root.GetInstanceId();
@@ -60,20 +60,13 @@ public abstract class PolygonItemBase : IQuadTreeItem
 
 	protected void SetPolygon(Vector2[] polygon)
 	{
-		if (root is Node2D node2D)
+		for (var i = 0; i < polygon.Length; i++)
 		{
-			for (var i = 0; i < polygon.Length; i++)
-			{
-				polygon[i] = node2D.ToGlobal(polygon[i]);
-			}
-			Bounds = GetPolygonAABB(polygon);
-			_polygon = polygon;
+			polygon[i] = root.ToGlobal(polygon[i]);
 		}
-		else if (root is Control)
-		{
-			Bounds = GetPolygonAABB(polygon);
-			_polygon = polygon;
-		}
+
+		Bounds = GetPolygonAABB(polygon);
+		_polygon = polygon;
 	}
 
 	protected Rect2 GetPolygonAABB(Vector2[] poly)

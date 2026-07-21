@@ -20,7 +20,6 @@ public partial class PassthroughManager : Node
 	private List<IQuadTreeItem> _screenSpaceItems = new List<IQuadTreeItem>();
 	private IPassthroughProvider _provider;
 	public QuadTree QuadTree { get; private set; }
-	public IReadOnlyList<IQuadTreeItem> ScreenSpaceItems => _screenSpaceItems;
 	public static PassthroughManager Instance { get; private set; }
 	private Camera2D _camera;
 	public Camera2D Camera
@@ -142,23 +141,6 @@ public partial class PassthroughManager : Node
 		_isUpdated = true;
 	}
 
-	public void RegisterCollisionPolygon2DClickArea(CollisionPolygon2D poly)
-	{
-		var instanceId = poly.GetInstanceId();
-		if (_clickAreas.ContainsKey(instanceId))
-		{
-			UpdateClickArea(poly);
-			return;
-		}
-		_clickAreas[instanceId] = new CollisionPloygon2DItem(poly);
-		if (QuadTree == null) return;
-		if (CheckIsScreenSpace(poly))
-			_screenSpaceItems.Add(_clickAreas[instanceId]);
-		else
-			QuadTree.Insert(_clickAreas[instanceId]);
-		_isUpdated = true;
-	}
-
 	public void RegisterClickArea(CanvasItem root)
 	{
 		if (root is Control control)
@@ -181,6 +163,37 @@ public partial class PassthroughManager : Node
 		{
 			GD.PushError("[PassthroughManager] Not supported CanvasItem.");
 		}
+	}
+
+	/// <summary>
+	/// 供测试和调试直接验证某个点是否命中了已注册的点击区域。
+	/// </summary>
+	public bool HasClickAreaAtPoint(Vector2 pos)
+	{
+		foreach (var item in _screenSpaceItems)
+		{
+			if (item.IsHit(pos))
+				return true;
+		}
+
+		return QuadTree != null && QuadTree.GetHitItem(pos) != null;
+	}
+
+	public void RegisterCollisionPolygon2DClickArea(CollisionPolygon2D poly)
+	{
+		var instanceId = poly.GetInstanceId();
+		if (_clickAreas.ContainsKey(instanceId))
+		{
+			UpdateClickArea(poly);
+			return;
+		}
+		_clickAreas[instanceId] = new CollisionPloygon2DItem(poly);
+		if (QuadTree == null) return;
+		if (CheckIsScreenSpace(poly))
+			_screenSpaceItems.Add(_clickAreas[instanceId]);
+		else
+			QuadTree.Insert(_clickAreas[instanceId]);
+		_isUpdated = true;
 	}
 
 	public void UpdateAllClickArea()

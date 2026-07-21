@@ -15,6 +15,7 @@ public class CollisionShape2DItem : IQuadTreeItem
     {
         Radius = 0f
     };
+
     public bool IsHit(Vector2 pos)
     {
         if (_shape == null)
