@@ -1,32 +1,43 @@
 ﻿using Godot;
 
-public class ControlItem : PolygonItemBase
+/// <summary>
+/// 将自适应 UI 背景矩形包装成可被 PassthroughManager 命中的四叉树元素。
+/// </summary>
+public class ControlItem : IQuadTreeItem
 {
-    private Control? _control => root as Control;
+    public QuadTreeNode CurrentNode { get; set; }
+    public CanvasItem RootNode => _control;
+    public Rect2 Bounds { get; private set; }
+    public ulong ItemID { get; private set; }
 
-    public ControlItem(Control polygon) : base(polygon)
+    private readonly Control _control;
+
+    public ControlItem(Control control)
     {
+        _control = control;
+        ItemID = control.GetInstanceId();
+        Update();
     }
 
-    public override void Update()
+    public bool IsHit(Vector2 pos)
     {
-        if (_control == null) return;
-
-        var rect = _control.GetGlobalRect();
-
-        Vector2[] polygon =
-        [
-            rect.Position,
-            rect.Position + new Vector2(rect.Size.X, 0),
-            rect.Position + rect.Size,
-            rect.Position + new Vector2(0, rect.Size.Y)
-        ];
-
-        for (var i = 0; i < polygon.Length; i++)
+        if (_control == null)
         {
-            polygon[i] = polygon[i];
+            GD.Print("Control is null");
+            return false;
         }
 
-        SetPolygon(polygon);
+        return Bounds.HasPoint(pos);
+    }
+
+    public void Update()
+    {
+        if (_control == null)
+        {
+            Bounds = new Rect2();
+            return;
+        }
+
+        Bounds = _control.GetGlobalRect();
     }
 }

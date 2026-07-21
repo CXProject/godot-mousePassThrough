@@ -1,5 +1,16 @@
 ## 更新日志
 
+### v1.1.1
+
+**新增 Control 点击区域支持**
+
+- 新增 `ControlItem`，使用 `Control.GetGlobalRect()` 获取全局矩形范围，支持 `Button`、`ColorRect` 等 `Control` 派生节点的鼠标穿透命中检测
+- 新增 `RegisterControlClickArea(Control ctrl)`，用于注册 UI 点击区域
+- 新增统一入口 `RegisterClickArea(CanvasItem root)`，可自动识别并注册 `Control`、`Polygon2D`、`CollisionPolygon2D` 和 `CollisionShape2D`
+- `UpdateClickArea` 与 `UnregisterClickArea` 的参数类型扩展为 `CanvasItem`，Control 节点也可使用相同的更新和注销流程
+- 新增 `HasClickAreaAtPoint(Vector2 pos)`，便于测试和调试已注册区域的命中结果
+- 完善 `testScene_with_controlitem.tscn` 示例：按钮点击与鼠标进入色块时会交替换色，并在启动时自动验证 Control 点击区域
+
 ### v1.1.0
 
 **fix bug: CollisionShape2DItem memory leak**
@@ -146,6 +157,31 @@
   PassthroughManager.Instance.RegisterPolygon2DClickArea(polygon);
   ```
 
+#### `RegisterControlClickArea(Control ctrl)`
+- **参数**:
+  - `ctrl` (Control): 要注册的 Control 节点
+- **返回值**: void
+- **说明**: 使用 Control 的全局矩形范围注册 UI 点击区域
+- **用途**: 支持 `Button`、`ColorRect` 等 Control 派生节点的鼠标穿透命中检测
+- **备注**: Control 的位置或尺寸变化后，需要调用 `UpdateClickArea` 刷新区域
+- **示例**:
+  ```csharp
+  var button = GetNode<Button>("MyButton");
+  PassthroughManager.Instance.RegisterControlClickArea(button);
+  ```
+
+#### `RegisterClickArea(CanvasItem root)`
+- **参数**:
+  - `root` (CanvasItem): 要注册的点击区域节点
+- **返回值**: void
+- **说明**: 根据节点类型自动选择对应的注册方法
+- **支持类型**: `Control`、`Polygon2D`、`CollisionPolygon2D`、`CollisionShape2D`
+- **示例**:
+  ```csharp
+  var clickable = GetNode<CanvasItem>("Clickable");
+  PassthroughManager.Instance.RegisterClickArea(clickable);
+  ```
+
 #### `RegisterCollisionPolygon2DClickArea(CollisionPolygon2D poly)`
 - **参数**:
   - `poly` (CollisionPolygon2D): 要注册的 CollisionPolygon2D 节点
@@ -172,9 +208,9 @@
   PassthroughManager.Instance.RegisterCollisionShape2DClickArea(shape);
   ```
 
-#### `UnregisterClickArea(Node2D root)`
+#### `UnregisterClickArea(CanvasItem root)`
 - **参数**:
-  - `root` (Node2D): 要注销的节点
+  - `root` (CanvasItem): 要注销的节点
 - **返回值**: void
 - **说明**: 注销一个已注册的可点击区域
 - **用途**: 从点击检测系统移除节点（如节点被删除或不再需要点击）
@@ -184,9 +220,9 @@
   PassthroughManager.Instance.UnregisterClickArea(node);
   ```
 
-#### `UpdateClickArea(Node2D root)`
+#### `UpdateClickArea(CanvasItem root)`
 - **参数**:
-  - `root` (Node2D): 要更新的节点
+  - `root` (CanvasItem): 要更新的节点
 - **返回值**: void
 - **说明**: 更新单个已注册节点的点击区域
 - **用途**: 当节点位置、旋转或形状改变时调用，确保碰撞检测信息最新
@@ -204,6 +240,16 @@
 - **示例**:
   ```csharp
   PassthroughManager.Instance.UpdateAllClickArea();
+  ```
+
+#### `HasClickAreaAtPoint(Vector2 pos)`
+- **参数**:
+  - `pos` (Vector2): 要检测的坐标点
+- **返回值**: bool
+- **说明**: 检查指定点是否命中任一已注册点击区域，主要用于测试和调试
+- **示例**:
+  ```csharp
+  bool isClickable = PassthroughManager.Instance.HasClickAreaAtPoint(mousePosition);
   ```
 
 ---
@@ -300,7 +346,7 @@ public override void _ExitTree()
 ✅ **跨平台支持**: Windows 使用原生 API (`WS_EX_TRANSPARENT`)，其他平台使用 Godot 的 `MousePassthroughPolygon`  
 ✅ **单例模式**: 全局唯一实例（AutoLoad），便于访问  
 ✅ **信号系统**: 集成 Godot 信号（`QuadTreeUpdate`），方便外部监听  
-✅ **灵活注册**: 支持多种碰撞形状（`Polygon2D`、`CollisionPolygon2D`、`CollisionShape2D`）  
+✅ **灵活注册**: 支持 UI 与多种碰撞形状（`Control`、`Polygon2D`、`CollisionPolygon2D`、`CollisionShape2D`）
 
 ## 参考
 https://github.com/Darnoman/Godot-Clickthrough-Addon
