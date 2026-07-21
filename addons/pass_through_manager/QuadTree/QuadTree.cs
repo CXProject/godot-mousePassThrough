@@ -12,7 +12,7 @@ public interface IQuadTreeItem
 	/// <summary>
 	/// 关联的根节点（用于检测 CanvasLayer 等属性）
 	/// </summary>
-	public Node2D RootNode { get; }
+	public CanvasItem RootNode { get; }
 
 	/// <summary>
 	/// 物体的包围矩形，用于决定它应该位于哪一个子节点中。

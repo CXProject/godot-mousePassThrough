@@ -1,0 +1,24 @@
+[gd_scene format=3 uid="uid://bugf5yyu3sjcd"]
+
+[ext_resource type="Script" uid="uid://egt1wfbc6q35" path="res://addons/pass_through_manager/Examples/test_scene_with_controlitem.gd" id="1_aha2c"]
+[ext_resource type="Script" uid="uid://d2271sl0idt2y" path="res://addons/pass_through_manager/Examples/test_pass_through_editor.cs" id="4_pci53"]
+
+[node name="TestScene" type="Node2D" unique_id=846472212]
+script = ExtResource("1_aha2c")
+
+[node name="DrawGizmo" type="Node2D" parent="." unique_id=1556574122]
+script = ExtResource("4_pci53")
+
+[node name="Button" type="Button" parent="." unique_id=1497004377]
+offset_left = 63.0
+offset_top = 55.0
+offset_right = 223.0
+offset_bottom = 139.0
+theme_override_font_sizes/font_size = 40
+text = "click"
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=1968270576]
+offset_left = 306.0
+offset_top = 50.0
+offset_right = 439.0
+offset_bottom = 166.0
