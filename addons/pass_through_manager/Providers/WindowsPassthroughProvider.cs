@@ -1,7 +1,5 @@
 #if GODOT_WINDOWS
 using Godot;
-using System;
-using System.Runtime.InteropServices;
 
 /// <summary>
 /// window平台的穿透功能实现
@@ -13,9 +11,14 @@ public class WindowsPassthroughProvider : IPassthroughProvider
                                                                         // 缓存句柄
 
         public Window Window { get; private set; }
+        private bool? _appliedClickthrough;
+
         public void Initialize(Window window)
         {
+                if (GodotObject.IsInstanceValid(Window) && Window != window)
+                        Win32APIBridge.UnregisterWindowHandle(Window);
                 Window = window;
+                _appliedClickthrough = null;
                 Win32APIBridge.RegisterWindowHandle(window);
                 // We can set the properties already from here
                 SetClickthrough(false);
@@ -23,23 +26,32 @@ public class WindowsPassthroughProvider : IPassthroughProvider
 
         public void Dispose()
         {
-                Win32APIBridge.UnregisterWindowHandle(Window);
+                if (GodotObject.IsInstanceValid(Window))
+                        Win32APIBridge.UnregisterWindowHandle(Window);
+                Window = null;
+                _appliedClickthrough = null;
         }
 
         // 同godot提供的polygon api不同，这里只提供要么都穿透，要么都不穿透。
         public void SetClickthrough(bool clickthrough)
         {
+                if (!GodotObject.IsInstanceValid(Window)) return;
+                if (_appliedClickthrough != clickthrough)
+                {
+                        if (clickthrough)
+                        {
+                                Win32APIBridge.RegisterForceStyle(Window, WsExTransparent);
+                                Win32APIBridge.UnRegisterFilterStyle(Window, WsExTransparent);
+                        }
+                        else
+                        {
+                                Win32APIBridge.UnRegisterForceStyle(Window, WsExTransparent);
+                                Win32APIBridge.RegisterFilterStyle(Window, WsExTransparent);
+                        }
+                        _appliedClickthrough = clickthrough;
+                }
 
-                if (clickthrough)
-                {
-                        Win32APIBridge.RegisterForceStyle(Window, WsExTransparent);
-                        Win32APIBridge.UnRegisterFilterStyle(Window, WsExTransparent);
-                }
-                else
-                {
-                        Win32APIBridge.UnRegisterForceStyle(Window, WsExTransparent);
-                        Win32APIBridge.RegisterFilterStyle(Window, WsExTransparent);
-                }
+                // Godot 修改置顶等窗口标志后，可能需要恢复穿透样式。
                 Win32APIBridge.RefreshStyle(Window);
         }
 }

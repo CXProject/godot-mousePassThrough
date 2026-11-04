@@ -36,10 +36,14 @@ public static class Win32APIBridge
     public static void RegisterWindowHandle(Window window)
     {
         var id = window.GetWindowId();
-        if (_hWnds.ContainsKey(id)) return;
         // We store the window handle
         var hWnd = (IntPtr)DisplayServer.WindowGetNativeHandle(DisplayServer.HandleType.WindowHandle, id);
-        _hWnds[window.GetWindowId()] = new WindowHandler(hWnd);
+        if (_hWnds.TryGetValue(id, out var existing))
+        {
+            existing.point = hWnd;
+            return;
+        }
+        _hWnds[id] = new WindowHandler(hWnd);
     }
 
     public static void UnregisterWindowHandle(Window window)
@@ -78,11 +82,11 @@ public static class Win32APIBridge
 
     public static void RefreshStyle(Window window)
     {
-        if (_hWnds.TryGetValue(window.GetWindowId(), out var handler) == false) return;
-        var style = (uint)GetWindowLong(handler.point, GwlExStyle);
-        style |= handler.forceStyle;
-        style &= ~handler.filterStyle;
-        SetWindowLong(handler.point, GwlExStyle, style | WsExLayered);
+        if (!_hWnds.TryGetValue(window.GetWindowId(), out var handler) || handler.point == IntPtr.Zero) return;
+        var current = unchecked((uint)GetWindowLong(handler.point, GwlExStyle));
+        var desired = ((current | handler.forceStyle) & ~handler.filterStyle) | WsExLayered;
+        if (desired != current)
+            SetWindowLong(handler.point, GwlExStyle, desired);
     }
 }
 #endif
